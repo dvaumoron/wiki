@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -94,7 +95,10 @@ func main() {
 	http.HandleFunc("/view/", makeHandler(viewHandler))
 	http.HandleFunc("/edit/", makeHandler(editHandler))
 	http.HandleFunc("/save/", makeHandler(saveHandler))
-	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(basePath + "/static"))))
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(basePath+"/static"))))
 
-	http.ListenAndServe(":8080", nil)
+	err := http.ListenAndServe(":8080", nil)
+	if err != nil {
+		fmt.Println("The following error occured", err)
+	}
 }
