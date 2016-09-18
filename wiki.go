@@ -94,6 +94,7 @@ func main() {
 	http.HandleFunc("/view/", makeHandler(viewHandler))
 	http.HandleFunc("/edit/", makeHandler(editHandler))
 	http.HandleFunc("/save/", makeHandler(saveHandler))
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(basePath + "/static"))))
 
 	http.ListenAndServe(":8080", nil)
 }
