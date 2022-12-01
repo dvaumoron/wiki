@@ -2,102 +2,95 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
+	"html/template"
 	"net/http"
 	"os"
 	"regexp"
-	"text/template"
+
+	"github.com/gin-gonic/gin"
 )
 
 type Page struct {
 	Title string
-	Body  []byte
+	Body  string
 }
 
 var basePath = os.Args[1]
 
 func (p *Page) save() error {
 	filename := basePath + "/data/" + p.Title + ".txt"
-	return ioutil.WriteFile(filename, p.Body, 0600)
+	return os.WriteFile(filename, []byte(p.Body), 0600)
 }
 
+var dataPath = basePath + "/data/"
+
 func loadPage(title string) (*Page, error) {
-	filename := basePath + "/data/" + title + ".txt"
-	body, err := ioutil.ReadFile(filename)
+	filename := dataPath + title + ".txt"
+	body, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
-	return &Page{Title: title, Body: body}, nil
+	return &Page{Title: title, Body: string(body)}, nil
 }
 
-var templates = template.Must(template.ParseFiles(basePath+"/templates/edit.html", basePath+"/templates/view.html"))
+var innerLink = regexp.MustCompile(`\[([a-zA-Z0-9]+)\]`)
 
-func renderTemplate(w http.ResponseWriter, tmpl string, p *Page) {
-	err := templates.ExecuteTemplate(w, tmpl+".html", p)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+func (p *Page) Display() map[string]any {
+	dp := map[string]any{"Title": p.Title}
+	dp["Body"] = template.HTML(innerLink.ReplaceAllStringFunc(p.Body, func(match string) string {
+		matchStr := match[1 : len(match)-1]
+		return "<a href=\"/view/" + matchStr + "\">" + matchStr + "</a>"
+	}))
+	return dp
 }
 
-var validPath = regexp.MustCompile("^/(edit|save|view)/([a-zA-Z0-9]+)$")
-
-func makeHandler(fn func(http.ResponseWriter, *http.Request, string)) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		m := validPath.FindStringSubmatch(r.URL.Path)
-		if m == nil {
-			http.NotFound(w, r)
-			return
-		}
-		fn(w, r, m[2])
-	}
+func home(c *gin.Context) {
+	c.Redirect(http.StatusFound, "/view/FrontPage")
 }
 
-func homeHandler(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, "/view/FrontPage", http.StatusFound)
-}
-
-var innerLink = regexp.MustCompile("\\[([a-zA-Z0-9]+)\\]")
-
-func viewHandler(w http.ResponseWriter, r *http.Request, title string) {
+func viewing(c *gin.Context) {
+	title := c.Param("title")
 	p, err := loadPage(title)
 	if err != nil {
-		http.Redirect(w, r, "/edit/"+title, http.StatusFound)
+		c.Redirect(http.StatusFound, "/edit/"+title)
 		return
 	}
-	p.Body = innerLink.ReplaceAllFunc(p.Body, func(match []byte) []byte {
-		matchStr := string(match[1 : len(match)-1])
-		return []byte("<a href=\"/view/" + matchStr + "\">" + matchStr + "</a>")
-	})
-	renderTemplate(w, "view", p)
+	c.HTML(http.StatusOK, "view.html", p.Display())
 }
 
-func editHandler(w http.ResponseWriter, r *http.Request, title string) {
+func editing(c *gin.Context) {
+	title := c.Param("title")
 	p, err := loadPage(title)
 	if err != nil {
 		p = &Page{Title: title}
 	}
-	renderTemplate(w, "edit", p)
+	c.HTML(http.StatusOK, "edit.html", p)
 }
 
-func saveHandler(w http.ResponseWriter, r *http.Request, title string) {
-	body := r.FormValue("body")
-	p := &Page{Title: title, Body: []byte(body)}
+func saving(c *gin.Context) {
+	title := c.Param("title")
+	body := c.PostForm("body")
+	p := &Page{Title: title, Body: body}
 	err := p.save()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
-	http.Redirect(w, r, "/view/"+title, http.StatusFound)
+	c.Redirect(http.StatusFound, "/view/"+title)
 }
 
 func main() {
-	http.HandleFunc("/", homeHandler)
-	http.HandleFunc("/view/", makeHandler(viewHandler))
-	http.HandleFunc("/edit/", makeHandler(editHandler))
-	http.HandleFunc("/save/", makeHandler(saveHandler))
-	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(basePath+"/static"))))
+	router := gin.Default()
 
-	err := http.ListenAndServe(":8080", nil)
+	router.LoadHTMLGlob(basePath + "/templates/*.html")
+
+	router.GET("/", home)
+	router.GET("/view/:title", viewing)
+	router.GET("/edit/:title", editing)
+	router.POST("/save/:title", saving)
+	router.Static("/static", basePath+"/static")
+
+	err := router.Run(":8080")
 	if err != nil {
 		fmt.Println(err)
 	}
