@@ -16,13 +16,12 @@ type Page struct {
 }
 
 var basePath = os.Args[1]
+var dataPath = basePath + "/data/"
 
 func (p *Page) save() error {
-	filename := basePath + "/data/" + p.Title + ".txt"
+	filename := dataPath + p.Title + ".txt"
 	return os.WriteFile(filename, []byte(p.Body), 0600)
 }
-
-var dataPath = basePath + "/data/"
 
 func loadPage(title string) (*Page, error) {
 	filename := dataPath + title + ".txt"
