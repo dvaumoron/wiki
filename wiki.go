@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -19,12 +20,12 @@ var basePath = os.Args[1]
 var dataPath = basePath + "/data/"
 
 func (p *Page) save() error {
-	filename := dataPath + p.Title + ".txt"
+	filename := strings.Join([]string{dataPath, p.Title, ".txt"}, "")
 	return os.WriteFile(filename, []byte(p.Body), 0600)
 }
 
 func loadPage(title string) (*Page, error) {
-	filename := dataPath + title + ".txt"
+	filename := strings.Join([]string{dataPath, title, ".txt"}, "")
 	body, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
@@ -38,7 +39,7 @@ func (p *Page) Display() map[string]any {
 	dp := map[string]any{"Title": p.Title}
 	dp["Body"] = template.HTML(innerLink.ReplaceAllStringFunc(p.Body, func(match string) string {
 		matchStr := match[1 : len(match)-1]
-		return "<a href=\"/view/" + matchStr + "\">" + matchStr + "</a>"
+		return strings.Join([]string{"<a href=\"/view/", matchStr, "\">", matchStr, "</a>"}, "")
 	}))
 	return dp
 }
