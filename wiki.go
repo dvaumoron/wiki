@@ -20,13 +20,19 @@ var basePath = os.Args[1]
 var dataPath = basePath + "/data/"
 
 func (p *Page) save() error {
-	filename := strings.Join([]string{dataPath, p.Title, ".txt"}, "")
-	return os.WriteFile(filename, []byte(p.Body), 0600)
+	var builder strings.Builder
+	builder.WriteString(dataPath)
+	builder.WriteString(p.Title)
+	builder.WriteString(".txt")
+	return os.WriteFile(builder.String(), []byte(p.Body), 0600)
 }
 
 func loadPage(title string) (*Page, error) {
-	filename := strings.Join([]string{dataPath, title, ".txt"}, "")
-	body, err := os.ReadFile(filename)
+	var builder strings.Builder
+	builder.WriteString(dataPath)
+	builder.WriteString(title)
+	builder.WriteString(".txt")
+	body, err := os.ReadFile(builder.String())
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +45,13 @@ func (p *Page) Display() map[string]any {
 	dp := map[string]any{"Title": p.Title}
 	dp["Body"] = template.HTML(innerLink.ReplaceAllStringFunc(p.Body, func(match string) string {
 		matchStr := match[1 : len(match)-1]
-		return strings.Join([]string{"<a href=\"/view/", matchStr, "\">", matchStr, "</a>"}, "")
+		var builder strings.Builder
+		builder.WriteString("<a href=\"/view/")
+		builder.WriteString(matchStr)
+		builder.WriteString("\">")
+		builder.WriteString(matchStr)
+		builder.WriteString("</a>")
+		return builder.String()
 	}))
 	return dp
 }
