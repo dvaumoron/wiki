@@ -41,7 +41,7 @@ func loadPage(title string) (*Page, error) {
 
 var innerLink = regexp.MustCompile(`\[([a-zA-Z0-9]+)\]`)
 
-func (p *Page) Display() gin.H {
+func (p *Page) display() gin.H {
 	dp := gin.H{"Title": p.Title}
 	dp["Body"] = template.HTML(innerLink.ReplaceAllStringFunc(p.Body, func(match string) string {
 		matchStr := match[1 : len(match)-1]
@@ -63,11 +63,11 @@ func home(c *gin.Context) {
 func viewing(c *gin.Context) {
 	title := c.Param("title")
 	p, err := loadPage(title)
-	if err != nil {
+	if err == nil {
+		c.HTML(http.StatusOK, "view.html", p.display())
+	} else {
 		c.Redirect(http.StatusFound, "/edit/"+title)
-		return
 	}
-	c.HTML(http.StatusOK, "view.html", p.Display())
 }
 
 func editing(c *gin.Context) {
@@ -81,14 +81,13 @@ func editing(c *gin.Context) {
 
 func saving(c *gin.Context) {
 	title := c.Param("title")
-	body := c.PostForm("body")
-	p := &Page{Title: title, Body: body}
+	p := &Page{Title: title, Body: c.PostForm("body")}
 	err := p.save()
-	if err != nil {
+	if err == nil {
+		c.Redirect(http.StatusFound, "/view/"+title)
+	} else {
 		c.AbortWithError(http.StatusInternalServerError, err)
-		return
 	}
-	c.Redirect(http.StatusFound, "/view/"+title)
 }
 
 func main() {
@@ -104,6 +103,6 @@ func main() {
 
 	err := router.Run(":8080")
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("failed to start :", err)
 	}
 }
