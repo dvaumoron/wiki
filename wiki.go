@@ -41,8 +41,8 @@ func loadPage(title string) (*Page, error) {
 
 var innerLink = regexp.MustCompile(`\[([a-zA-Z0-9]+)\]`)
 
-func (p *Page) Display() map[string]any {
-	dp := map[string]any{"Title": p.Title}
+func (p *Page) Display() gin.H {
+	dp := gin.H{"Title": p.Title}
 	dp["Body"] = template.HTML(innerLink.ReplaceAllStringFunc(p.Body, func(match string) string {
 		matchStr := match[1 : len(match)-1]
 		var builder strings.Builder
